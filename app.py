@@ -10,8 +10,7 @@ import json
 import time
 import random
 
-from google import genai
-from google.genai import types
+import google.generativeai as genai  # Fixed import
 from gtts import gTTS
 import speech_recognition as sr
 import pandas as pd
@@ -28,7 +27,7 @@ st.set_page_config(
 )
 
 # ----------------------------------
-# GEMINI CLIENT
+# GEMINI CLIENT - FIXED
 # ----------------------------------
 @st.cache_resource
 def get_gemini_client():
@@ -37,12 +36,16 @@ def get_gemini_client():
     if not api_key:
         st.error("⚠️ GEMINI_API_KEY not found in environment variables!")
         st.stop()
-    return genai.Client(api_key=api_key)
+    
+    # Configure Gemini with the new import style
+    genai.configure(api_key=api_key)
+    
+    # Use the correct model
+    model = genai.GenerativeModel('gemini-2.0-flash')
+    return model
 
-client = get_gemini_client()
-
-# Model configuration
-GEMINI_MODEL = "gemini-2.0-flash"
+# Get the model instance
+model = get_gemini_client()
 
 # ----------------------------------
 # CUSTOM CSS
@@ -207,10 +210,10 @@ def speech_to_text(audio_file):
         return None
 
 # ----------------------------------
-# ULTRA DYNAMIC QUESTION GENERATION - FIXED!
+# ULTRA DYNAMIC QUESTION GENERATION
 # ----------------------------------
 def generate_questions(role):
-    """Generate UNIQUE, DYNAMIC interview questions using Gemini - ALWAYS fresh!"""
+    """Generate UNIQUE, DYNAMIC interview questions using Gemini"""
     
     role_clean = role.strip().title()
     
@@ -238,13 +241,6 @@ Generate 5 interview questions that are:
 - Challenging but fair
 - Different from typical questions
 
-Question types to include (mix them):
-1. One about motivation/passion for {role_clean}
-2. One about technical/skills relevant to {role_clean}
-3. One about handling challenges/setbacks
-4. One about teamwork/collaboration
-5. One about future goals/aspirations
-
 Return ONLY the 5 questions, one per line.
 No numbering, no explanations, no extra text.
 
@@ -252,13 +248,12 @@ Questions:"""
 
     try:
         # Call Gemini with HIGH temperature for creativity
-        response = client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.9,  # High temperature for variety
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                temperature=0.9,
                 max_output_tokens=800,
-                top_p=0.95,  # More diverse token selection
+                top_p=0.95,
                 top_k=40
             )
         )
@@ -279,10 +274,9 @@ Questions:"""
             fallback_prompt = f"Generate {missing_count} more unique interview questions for a {role_clean} position. One per line:"
             
             try:
-                fallback_response = client.models.generate_content(
-                    model=GEMINI_MODEL,
-                    contents=fallback_prompt,
-                    config=types.GenerateContentConfig(temperature=0.85, max_output_tokens=400)
+                fallback_response = model.generate_content(
+                    fallback_prompt,
+                    generation_config=genai.types.GenerationConfig(temperature=0.85, max_output_tokens=400)
                 )
                 fallback_qs = [q.strip() for q in fallback_response.text.split('\n') if q.strip()]
                 questions.extend(fallback_qs[:missing_count])
@@ -505,10 +499,9 @@ FEEDBACK: [3-4 sentences of specific advice]
 RECOMMENDATION: [Strong Hire/Hire/Consider/Needs Improvement]"""
 
     try:
-        response = client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=prompt,
-            config=types.GenerateContentConfig(
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
                 temperature=0.3,
                 max_output_tokens=1500
             )
