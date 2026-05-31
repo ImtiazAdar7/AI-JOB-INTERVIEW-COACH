@@ -1,0 +1,292 @@
+
+# import streamlit as st
+# import os
+# import tempfile
+# from google import genai
+# from gtts import gTTS
+# import speech_recognition as sr
+# import pandas as pd
+# import matplotlib.pyplot as plt
+# import re
+
+# client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+# st.set_page_config(page_title="AI Job Interview Coach", layout="wide")
+
+# st.markdown("""
+# <h1 style='align:center'>
+# AI Job Interview Coach
+# </h1>
+
+# <h4 style='color:#888888; align:center'>
+# Built by <span style='color:#00BFFF;'>Imtiaz Adar</span>
+# </h4>
+# """, unsafe_allow_html=True)
+
+# if "questions" not in st.session_state:
+#     st.session_state.questions = []
+
+# if "index" not in st.session_state:
+#     st.session_state.index = 0
+
+# if "answers" not in st.session_state:
+#     st.session_state.answers = []
+
+# if "final_feedback" not in st.session_state:
+#     st.session_state.final_feedback = None
+
+# if "summary_audio" not in st.session_state:
+#     st.session_state.summary_audio = None
+    
+    
+# def speak(text):
+#     tts = gTTS(text)
+#     file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+#     tts.save(file.name)
+#     return file.name
+
+# def generate_questions(role):
+
+#     prompt = f"""
+#     You are a professional interviewer.
+
+#     Generate exactly 5 interview questions for a {role} position.
+
+#     Return only the questions.
+#     One question per line.
+#     """
+
+#     try:
+
+#         result = client.models.generate_content(
+#             model="gemini-2.5-flash",
+#             contents=prompt
+#         )
+
+#         return [
+#             q.strip()
+#             for q in result.text.split("\n")
+#             if q.strip()
+#         ]
+
+#     except Exception as e:
+
+#         st.error(f"Gemini Error: {e}")
+
+#         return []
+
+# def evaluate_interview(questions, answers):
+
+#     qa_text = ""
+
+#     for i in range(len(questions)):
+
+#         qa_text += f"""
+# Question {i+1}:
+# {questions[i]}
+
+# Answer:
+# {answers[i]}
+
+# """
+
+#     prompt = f"""
+# You are a supportive interview coach.
+
+# The candidate may be a student or beginner with limited experience.
+
+# Evaluate fairly.
+
+# Do NOT penalize candidates for lacking professional experience.
+
+# Focus on:
+# - Clarity
+# - Relevance
+# - Potential
+# - Communication
+
+# Score generously but honestly.
+
+# Scoring:
+# 1-2 = Very poor
+# 3-4 = Basic
+# 5-6 = Average
+# 7-8 = Good
+# 9-10 = Excellent
+
+# Return:
+
+# Overall Score: X/10
+
+# Strengths:
+# - ...
+
+# Areas for Improvement:
+# - ...
+
+# Question-wise Feedback:
+# 1. Score: X/10 - ...
+# 2. Score: X/10 - ...
+# 3. Score: X/10 - ...
+# 4. Score: X/10 - ...
+# 5. Score: X/10 - ...
+
+# Final Recommendation:
+# ...
+# """
+
+#     try:
+
+#         result = client.models.generate_content(
+#             model="gemini-2.5-flash",
+#             contents=prompt
+#         )
+
+#         return result.text
+
+#     except Exception as e:
+
+#         return f"Evaluation Error: {e}"
+
+# def extract_score(text):
+
+#     match = re.search(
+#         r"Score:\s*(\d+)",
+#         text,
+#         re.IGNORECASE
+#     )
+
+#     if match:
+#         return int(match.group(1))
+
+#     return 0
+
+
+# role = st.sidebar.text_input("Job Role")
+# role_audio = st.sidebar.audio_input("Speak Job Role")
+# if role_audio:
+#     r = sr.Recognizer()
+
+#     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
+#         f.write(role_audio.getbuffer())
+#         path = f.name
+
+#     with sr.AudioFile(path) as source:
+#         audio_data = r.record(source)
+
+#     try:
+#         role = r.recognize_google(audio_data)
+
+#         st.sidebar.success("Detected Role")
+#         st.sidebar.write(role)
+
+#     except:
+#         st.sidebar.error("Could not recognize role")
+
+# start = st.sidebar.button("Start Interview")
+
+# # start
+
+# if start and role:
+
+#     questions = generate_questions(role)
+
+#     if questions:
+
+#         st.session_state.questions = questions
+
+#         st.session_state.index = 0
+
+#         st.session_state.answers = []
+
+#         st.session_state.final_feedback = None
+
+#         st.session_state.summary_audio = None
+    
+
+
+# # progress
+
+# if st.session_state.questions:
+#     progress = min(st.session_state.index / len(st.session_state.questions), 1.0)
+#     st.progress(progress)
+    
+# # main flow
+
+# if st.session_state.questions:
+
+#     i = st.session_state.index
+
+#     if i < len(st.session_state.questions):
+#         st.subheader(f"Question {i + 1}")
+#         question = st.session_state.questions[i]
+        
+#         st.write(question)
+#         col1, col2 = st.columns(2)
+        
+#         with col1:
+#             text_answer = st.text_area("Type Your Answer",key=f"answer_{i}")
+#         with col2:
+#             audio = st.audio_input("Speak Your Answer")
+#         answer = None
+#         if audio:
+#             r = sr.Recognizer()
+#             with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
+#                 f.write(audio.getbuffer())
+#                 path = f.name
+#             with sr.AudioFile(path) as source:
+#                 audio_data = r.record(source)
+#             try:
+#                 answer = r.recognize_google(audio_data)
+#                 st.success("Voice converted")
+#                 st.write(answer)
+#             except:
+#                 st.error("Could Not Understand Your Voice")
+                
+#         if text_answer:
+#             answer = text_answer
+        
+#         if st.button("Submit"):
+
+#             if answer:
+
+#                 st.session_state.answers.append(answer)
+
+#                 st.session_state.index += 1
+
+#                 st.rerun()
+
+#     else:
+
+#         st.success("Interview Completed")
+
+#         if st.session_state.final_feedback is None:
+
+#             feedback = evaluate_interview(
+#                 st.session_state.questions,
+#                 st.session_state.answers
+#             )
+
+#             st.session_state.final_feedback = feedback
+
+#             audio_file = speak(feedback)
+
+#             st.session_state.summary_audio = audio_file
+#         st.subheader("Final Interview Evaluation")
+
+#         st.write(st.session_state.final_feedback)
+#         if st.session_state.summary_audio:
+
+#             st.audio(st.session_state.summary_audio)
+#         st.subheader("Your Answers")
+
+#         for i in range(len(st.session_state.answers)):
+
+#             st.markdown(f"### Question {i+1}")
+
+#             st.write(st.session_state.questions[i])
+
+#             st.write("Answer:")
+
+#             st.write(st.session_state.answers[i])
+
+#             st.markdown("---")
